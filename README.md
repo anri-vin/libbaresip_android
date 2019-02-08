@@ -33,9 +33,11 @@ This will create libbaresip-android directory containing Makefile.
 Go to ./libbaresip-android directory and edit Makefile.
 You need to set (or check) following variables:
 
+```
 NDK_PATH  - Path to your NDK bundle. E.g. /opt/android-ndk-r19
 API_LEVEL - Target android API level. E.g. 28
 OUTPUT_DIR - Directory where output shoud be stored. E.g. output or /home/user/output
+```
 
 ## Step 3 - download sources
 
