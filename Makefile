@@ -5,12 +5,12 @@ NDK_PATH  := /opt/android-ndk-r19
 # Android API level:
 API_LEVEL := 28
 
-# Set from following values: [armeabi-v7a, arm64-v8a, x86, x86_64]
-ANDROID_TARGET_ARCH := armv7-a
-
 OUTPUT_DIR := output
 
 # -------------------- GENERATED VALUES --------------------
+SHELL = /bin/bash
+
+# Possible values for ANDROID_TARGET_ARCH: [armeabi-v7a, arm64-v8a, x86, x86_64]
 ifeq ($(ANDROID_TARGET_ARCH), armeabi-v7a)
 	TARGET       := arm-linux-androideabi
 	CLANG_TARGET := armv7a-linux-androideabi
@@ -29,7 +29,7 @@ else ifeq ($(ANDROID_TARGET_ARCH), x86)
 	ARCH	     := i386
 	OPENSSL_ARCH := android-x86
 	MARCH        := i686
-else
+else ifeq ($(ANDROID_TARGET_ARCH), x86_64)
 	TARGET       := x86_64-linux-android
 	CLANG_TARGET := $(TARGET)
 	ARCH         := x86_64
@@ -104,8 +104,6 @@ all:
 	make install ANDROID_TARGET_ARCH=x86_64
 	make copy-headers
 
-default: install
-
 .PHONY: openssl
 openssl:
 	cd openssl && \
@@ -122,20 +120,26 @@ opus:
 	mkdir include_opus/opus && \
 	cp include/* include_opus/opus
 
-libre.a: Makefile
+libre.a:
 	@rm -f re/libre.*
 	PATH=$(PATH) RANLIB=$(RANLIB) AR=$(AR) CC=$(CC) make $@ -C re $(COMMON_FLAGS)
 
-librem.a: Makefile libre.a
+librem.a: libre.a
 	@rm -f rem/librem.*
 	PATH=$(PATH) RANLIB=$(RANLIB) AR=$(AR) CC=$(CC) make $@ -C rem $(COMMON_FLAGS)
 
-libbaresip: Makefile openssl opus librem.a libre.a
+libbaresip: openssl opus librem.a libre.a
 	@rm -f baresip/baresip baresip/src/static.c
 	PKG_CONFIG_LIBDIR="$(SYSROOT)/usr/lib/pkgconfig" PATH=$(PATH) RANLIB=$(RANLIB) AR=$(AR) CC=$(CC) \
 	make libbaresip.a -C baresip $(COMMON_FLAGS) STATIC=1 LIBRE_SO=$(PWD)/re LIBREM_PATH=$(PWD)/rem MOD_AUTODETECT= EXTRA_MODULES="$(EXTRA_MODULES)"
 
-install: Makefile libbaresip
+ifdef ANDROID_TARGET_ARCH
+
+ifneq ($(shell [[ $(ANDROID_TARGET_ARCH) == armeabi-v7a || $(ANDROID_TARGET_ARCH) == arm64-v8a || $(ANDROID_TARGET_ARCH) == x86 || $(ANDROID_TARGET_ARCH) == x86_64 ]] && echo true) , true)
+$(error Unknown ANDROID_TARGET_ARCH passed to makefile: $(ANDROID_TARGET_ARCH))
+endif
+
+install: libbaresip
 	rm -rf $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)
 	mkdir -p $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)
 	cp openssl/libcrypto.a $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)
@@ -144,9 +148,15 @@ install: Makefile libbaresip
 	cp re/libre.a $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)
 	cp rem/librem.a $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)
 	cp baresip/libbaresip.a $(OUTPUT_DIR)/$(ANDROID_TARGET_ARCH)
+else
+
+install:
+	$(error ANDROID_TARGET_ARCH is not set)
+
+endif
 
 .PHONY: copy-headers
-copy-headers: Makefile
+copy-headers:
 	rm -rf $(OUTPUT_DIR)/include
 	mkdir -p $(OUTPUT_DIR)/include/re
 	cp re/include/* $(OUTPUT_DIR)/include/re
